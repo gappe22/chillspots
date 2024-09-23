@@ -13,13 +13,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gappe.chillspots",
+      "config": {
+        "googleMapsApiKey": "AIzaSyC_ND_iE1k03phaW5_HJRsObmgQfG41DmI"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.gappe.chillspots"
     },
     "web": {
       "bundler": "metro",

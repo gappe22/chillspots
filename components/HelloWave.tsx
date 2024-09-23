@@ -12,18 +12,22 @@ import { ThemedText } from '@/components/ThemedText';
 export function HelloWave() {
   const rotationAnimation = useSharedValue(0);
 
-  rotationAnimation.value = withRepeat(
-    withSequence(withTiming(25, { duration: 150 }), withTiming(0, { duration: 150 })),
-    4 // Run the animation 4 times
-  );
+  rotationAnimation.value = 0;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotationAnimation.value}deg` }],
   }));
 
+  const wave = () => {
+    rotationAnimation.value = withRepeat(
+      withSequence(withTiming(25, { duration: 150 }), withTiming(0, { duration: 150 })),
+      4 // Run the animation 4 times
+    );
+  }
+
   return (
     <Animated.View style={animatedStyle}>
-      <ThemedText style={styles.text}>👋</ThemedText>
+      <ThemedText style={styles.text} onPress={wave}>👋</ThemedText>
     </Animated.View>
   );
 }
