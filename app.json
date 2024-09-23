@@ -14,10 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gappe.chillspots",
-      "config": {
-        "googleMapsApiKey": "AIzaSyC_ND_iE1k03phaW5_HJRsObmgQfG41DmI"
-      }
+      "bundleIdentifier": "com.gappe.chillspots"
     },
     "android": {
       "adaptiveIcon": {
