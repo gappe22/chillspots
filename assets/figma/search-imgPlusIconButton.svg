@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="plus icon button">
+<g id="background" filter="url(#filter0_f_0_329)">
+<circle cx="22" cy="22" r="18.5" fill="#007AFF"/>
+</g>
+<path id="plus icon" d="M29.6707 21.2329V22.7671H22.361V29.6707H20.7366V22.7671H13.4268V21.2329H20.7366V14.3293H22.361V21.2329H29.6707Z" fill-rule="evenodd" clip-rule="evenodd" fill="#F9F9FF"/>
+</g>
+<defs>
+<filter id="filter0_f_0_329" x="0" y="0" width="44" height="44" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1.75" result="effect1_foregroundBlur_0_329"/>
+</filter>
+</defs>
+</svg>

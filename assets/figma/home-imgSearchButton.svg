@@ -1,0 +1,25 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="59.3046" height="59.3046" viewBox="0 0 59.3046 59.3046" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="search button">
+<g id="background" filter="url(#filter0_dd_0_16)">
+<circle cx="29.6523" cy="27.6523" r="21.6523" fill="#F9F9FF"/>
+</g>
+<path id="search icon" d="M33.3048 31.3198L38.3132 36.3132M35.4262 26.2088C35.4262 30.1948 32.1948 33.4262 28.2088 33.4262C24.2227 33.4262 20.9914 30.1948 20.9914 26.2088C20.9914 22.2227 24.2227 18.9914 28.2088 18.9914C32.1948 18.9914 35.4262 22.2227 35.4262 26.2088Z" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke="#454545"/>
+</g>
+<defs>
+<filter id="filter0_dd_0_16" x="0" y="0" width="59.3046" height="59.3046" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feMorphology radius="2" operator="dilate" in="SourceAlpha" result="effect1_dropShadow_0_16"/>
+<feOffset dy="2"/>
+<feGaussianBlur stdDeviation="3"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_16"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="1"/>
+<feGaussianBlur stdDeviation="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.3 0"/>
+<feBlend mode="normal" in2="effect1_dropShadow_0_16" result="effect2_dropShadow_0_16"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect2_dropShadow_0_16" result="shape"/>
+</filter>
+</defs>
+</svg>

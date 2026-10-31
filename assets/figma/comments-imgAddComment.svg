@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="45.2377" height="45.2377" viewBox="0 0 45.2377 45.2377" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="add comment">
+<circle id="Ellipse 11" cx="22.6189" cy="22.6189" r="22.6189" fill="#007AFF"/>
+<g id="message-square 1">
+<path id="Vector" d="M32.4213 26.3144C32.4213 26.8922 32.1918 27.4462 31.7833 27.8547C31.3748 28.2632 30.8207 28.4927 30.243 28.4927H17.1731L12.8165 32.8494V15.4229C12.8165 14.8452 13.046 14.2911 13.4545 13.8826C13.863 13.4741 14.4171 13.2446 14.9948 13.2446H30.243C30.8207 13.2446 31.3748 13.4741 31.7833 13.8826C32.1918 14.2911 32.4213 14.8452 32.4213 15.4229V26.3144Z" fill="#F9F9FF" stroke-linecap="round" stroke-linejoin="round" stroke="#F9F9FF"/>
+</g>
+<g id="plus icon">
+<path d="M26.8347 20.2844V21.0807H23.0404V24.6642H22.1972V21.0807H18.4029V20.2844H22.1972V16.7009H23.0404V20.2844H26.8347Z" fill-rule="evenodd" clip-rule="evenodd" fill="#007AFF"/>
+<mask id="stroke0_0_13" maskUnits="userSpaceOnUse" x="17.4029" y="15.7009" width="10" height="10" fill="black">
+<rect fill="white" x="17.4029" y="15.7009" width="10" height="10"/>
+<path d="M26.8347 20.2844V21.0807H23.0404V24.6642H22.1972V21.0807H18.4029V20.2844H22.1972V16.7009H23.0404V20.2844H26.8347Z" fill-rule="evenodd" clip-rule="evenodd"/>
+</mask>
+<path d="M26.8347 20.2844V21.0807H23.0404V24.6642H22.1972V21.0807H18.4029V20.2844H22.1972V16.7009H23.0404V20.2844H26.8347Z" stroke-width="0.8" stroke="#007AFF" mask="url(#stroke0_0_13)"/>
+</g>
+</g>
+</svg>

@@ -1,0 +1,15 @@
+import { StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import type { CategoryRatings } from '@/shared/types';
+import { mono, theme } from './theme';
+export const ratingCategories = [
+  { key: 'beauty', label: 'Bellezza', color: theme.lime, icon: 'sparkles', iconSize: 15 },
+  { key: 'privacy', label: 'Privacy', color: theme.blue, icon: 'shield-checkmark', iconSize: 15 },
+  { key: 'accessibility', label: 'Accessibilità', color: theme.mantis, icon: 'trail-sign', iconSize: 15 },
+] as const;
+export function formatRating(value: number) { return value.toFixed(1).replace('.', ','); }
+export function averageRating(ratings: CategoryRatings) { return (ratings.beauty + ratings.privacy + ratings.accessibility) / 3; }
+export function RatingDots({ value, size = 8, gap = 3 }: { value: number; size?: number; gap?: number }) { return <View accessibilityLabel={`${formatRating(value)} su 5`} style={{ flexDirection: 'row', gap }}>{[0, 1, 2, 3, 4].map(index => <View key={index} style={{ width: size, height: size, borderRadius: 0, backgroundColor: index < Math.round(value) ? theme.blue : theme.line }} />)}</View>; }
+export function OverallRating({ value }: { value: number }) { return <View style={styles.overall}><Ionicons name="star" size={13} color={theme.ink} /><Text style={styles.overallValue}>{formatRating(value)}</Text></View>; }
+export function Ratings({ ratings, compact = false }: { ratings: CategoryRatings; compact?: boolean }) { return <View style={[styles.categories, compact && { gap: 6 }]}>{ratingCategories.map(({ key, label, color, icon }) => <View key={key} style={styles.row} accessibilityLabel={`${label}: ${formatRating(ratings[key])} su 5`}><View style={[styles.label, compact && { width: 105 }]}><Ionicons name={icon} size={15} color={theme.ink} /><Text style={styles.labelText}>{label}</Text></View><Text style={styles.value}>{formatRating(ratings[key])}</Text><View style={styles.segments}>{[0, 1, 2, 3, 4].map(index => <View key={index} style={[styles.segment, compact && { height: 4, borderWidth: 0 }]}><View style={{ height: '100%', width: `${Math.min(1, Math.max(0, ratings[key] - index)) * 100}%`, backgroundColor: color }} /></View>)}</View></View>)}</View>; }
+const styles = StyleSheet.create({ overall: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: theme.lime, borderWidth: 1, borderColor: theme.ink, paddingVertical: 6, paddingHorizontal: 8 }, overallValue: { fontFamily: 'Inter-Bold', fontSize: 13, color: theme.ink }, categories: { gap: 12 }, row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, label: { flexDirection: 'row', alignItems: 'center', gap: 7, width: 112 }, labelText: { fontFamily: 'Inter-Medium', fontSize: 12, color: theme.ink }, value: { fontFamily: mono, fontSize: 11, color: theme.muted, width: 25 }, segments: { flexDirection: 'row', flex: 1, gap: 3 }, segment: { flex: 1, height: 7, backgroundColor: theme.line, borderWidth: .5, borderColor: theme.ink, overflow: 'hidden' } });

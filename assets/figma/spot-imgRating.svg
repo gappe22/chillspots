@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="32.6161" height="4.93328" viewBox="0 0 32.6161 4.93328" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="rating">
+<circle id="dot #1" cx="2.46664" cy="2.46664" r="2.46664" fill="#007AFF"/>
+<circle id="dot #2" cx="9.38744" cy="2.46664" r="2.46664" fill="#007AFF"/>
+<circle id="dot #3" cx="16.3082" cy="2.46664" r="2.46664" fill="#007AFF"/>
+<circle id="dot #4 (back)" cx="23.2289" cy="2.46664" r="2.46664" fill="#D9D9D9"/>
+<circle id="dot #5" cx="30.1495" cy="2.46664" r="2.46664" fill="#D9D9D9"/>
+<mask id="mask0_0_24" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="20" y="0" width="4" height="5">
+<rect id="mask" x="20.7622" width="2.62463" height="4.93328" fill="#D9D9D9"/>
+</mask>
+<g mask="url(#mask0_0_24)">
+<circle id="dot #4" cx="23.2289" cy="2.46664" r="2.46664" fill="#007AFF"/>
+</g>
+</g>
+</svg>
