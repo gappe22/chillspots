@@ -169,6 +169,7 @@ export async function createApp({
       const user = requireUser(req, data);
       const spot = data.spots.find(item => item.id === req.params.id);
       if (!spot) throw notFound();
+      if (spot.ownerId && spot.ownerId === user.id) throw new ApiError(403, 'OWN_SPOT_REVIEW', 'Non puoi recensire un tuo spot.');
       if (data.reviews[spot.id].some(review => review.authorId === user.id)) throw new ApiError(409, 'ALREADY_REVIEWED', 'Hai già recensito questo spot.');
       const review = { ...input, id: randomUUID(), authorId: user.id, author: { name: user.name, avatar: user.avatar }, createdAt: new Date().toISOString() };
       data.reviews[spot.id].unshift(review);

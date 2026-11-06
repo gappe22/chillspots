@@ -27,7 +27,7 @@ export function useSheetMotion({ height, peekHeight, expanded: controlled, onExp
     animation.current?.stop();
     if (reduceMotion) { offset.setValue(toValue); position.current = toValue; finished?.(); return; }
     const options = { toValue, useNativeDriver: Platform.OS !== 'web' };
-    const next = exiting ? Animated.timing(offset, { ...options, duration: 210, easing: Easing.out(Easing.cubic) }) : Animated.spring(offset, { ...options, stiffness: 340, damping: 36, mass: 1, overshootClamping: true, restDisplacementThreshold: .5, restSpeedThreshold: .5 });
+    const next = exiting ? Animated.timing(offset, { ...options, duration: 200, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }) : Animated.spring(offset, { ...options, stiffness: 340, damping: 36, mass: 1, overshootClamping: true, restDisplacementThreshold: .5, restSpeedThreshold: .5 });
     animation.current = next;
     next.start(({ finished: complete }) => { if (complete && mounted.current) { position.current = toValue; finished?.(); } });
   }, [offset, reduceMotion]);
@@ -44,16 +44,18 @@ export function useSheetMotion({ height, peekHeight, expanded: controlled, onExp
       const complete = () => { exiting.current = null; finished(); };
       exiting.current = complete;
       Keyboard.dismiss();
-      if (position.current >= height + 3) complete(); else animate(height + 4, complete, true);
+      if (position.current >= height + 20) complete(); else animate(height + 30, complete, true);
     },
   }), [snap, animate, height]);
 
   const previous = useRef(controlled);
   useEffect(() => { if (controlled !== undefined && previous.current !== controlled) { expandedRef.current = controlled; setExpanded(controlled); animate(controlled ? 0 : travel); } previous.current = controlled; }, [controlled, animate, travel]);
   useEffect(() => {
-    // Keyboard/layout changes must continue a dismissal instead of reopening the sheet.
-    if (exiting.current) animate(height + 4, exiting.current, true);
-    else animate(expandedRef.current ? 0 : travel);
+    if (exiting.current) return;
+    const target = expandedRef.current ? 0 : travel;
+    if (Math.abs(position.current - target) > 1) {
+      animate(target);
+    }
   }, [animate, travel, height]);
 
   const drag = useMemo(() => ({

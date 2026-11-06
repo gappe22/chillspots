@@ -10,9 +10,10 @@ export function Action({ title, onPress, busy = false, disabled = false, seconda
     {busy ? <ActivityIndicator color={secondary || danger ? theme.ink : theme.paper} /> : <><Text style={[styles.actionText, compact && { fontSize: 11 }, (secondary || danger) && { color: theme.ink }]}>{title}</Text><Ionicons name="arrow-forward" size={18} color={secondary || danger ? theme.ink : theme.white} /></>}
   </Pressable>;
 }
-export function Field({ label, ...props }: TextInputProps & { label: string }) {
+export function Field({ label, secureTextEntry, ...props }: TextInputProps & { label: string }) {
   const [focused, setFocused] = useState(false);
-  return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} placeholderTextColor={theme.muted} {...props} onFocus={event => { setFocused(true); props.onFocus?.(event); }} onBlur={event => { setFocused(false); props.onBlur?.(event); }} style={[styles.input, props.multiline && { minHeight: 104, textAlignVertical: 'top' }, focused && { borderColor: theme.blue, backgroundColor: theme.paper }, props.style]} /></View>;
+  const [showPassword, setShowPassword] = useState(false);
+  return <View style={styles.field}><Text style={styles.label}>{label}</Text><View style={styles.inputWrap}><TextInput accessibilityLabel={label} placeholderTextColor={theme.muted} {...props} secureTextEntry={secureTextEntry && !showPassword} onFocus={event => { setFocused(true); props.onFocus?.(event); }} onBlur={event => { setFocused(false); props.onBlur?.(event); }} style={[styles.input, secureTextEntry && { paddingRight: 48 }, props.multiline && { minHeight: 104, textAlignVertical: 'top' }, focused && { borderColor: theme.blue, backgroundColor: theme.paper }, props.style]} />{secureTextEntry && <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Nascondi password' : 'Mostra password'} disabled={props.editable === false} onPress={() => setShowPassword(value => !value)} style={styles.eyeButton}><Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.ink} /></Pressable>}</View></View>;
 }
 export function Message({ text }: { text: string | null }) { return text ? <View style={styles.messageBox}><Ionicons name="alert-circle-outline" size={19} color={theme.danger} /><Text accessibilityRole="alert" style={styles.message}>{text}</Text></View> : null; }
 export function ModalSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -22,7 +23,9 @@ export function ModalSheet({ title, onClose, children }: { title: string; onClos
 export const styles = StyleSheet.create({
   action: { minHeight: 48, paddingHorizontal: 17, paddingVertical: 13, borderWidth: 2, borderColor: theme.ink, backgroundColor: theme.blue, flexDirection: 'row', gap: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12, marginBottom: 4, ...hardShadow }, secondary: { backgroundColor: theme.white }, actionText: { color: theme.paper, fontFamily: 'Inter-Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: .3, flexShrink: 1 },
   field: { marginTop: 18 }, label: { fontFamily: mono, fontSize: 11, fontWeight: '700', color: theme.ink, marginBottom: 8, textTransform: 'uppercase', letterSpacing: .8 },
+  inputWrap: { position: 'relative', justifyContent: 'center' },
   input: { fontFamily: 'Inter-Regular', fontSize: 15, borderWidth: 2, borderColor: theme.ink, backgroundColor: theme.paper, color: theme.ink, paddingHorizontal: 14, paddingVertical: 13 },
+  eyeButton: { position: 'absolute', right: 4, top: 2, bottom: 2, width: 42, alignItems: 'center', justifyContent: 'center' },
   messageBox: { marginTop: 16, padding: 12, backgroundColor: theme.lime, borderWidth: 1, borderColor: theme.danger, flexDirection: 'row', gap: 8 }, message: { flex: 1, color: theme.danger, fontFamily: 'Inter-Medium', fontSize: 13, lineHeight: 19 },
   modalContent: { paddingHorizontal: 22, paddingBottom: 32 },
 });

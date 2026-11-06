@@ -7,7 +7,7 @@ import { clusterSpots, INITIAL_REGION, regionForCluster, type SpotMapProps } fro
 
 export type { SpotMapProps } from './mapHelpers';
 
-export default function SpotMap({ spots, selectedId, onSelect, onRegionChange, picking, pickedCoordinate, onPick, target, reduceMotion, userCoordinate, zoomRequest }: SpotMapProps) {
+export default function SpotMap({ spots, selectedId, onSelect, onRegionChange, picking, pickedCoordinate, onPick, target, reduceMotion, userCoordinate, zoomRequest, onInteract }: SpotMapProps) {
   const map = useRef<MapView>(null);
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [ready, setReady] = useState(false);
@@ -56,7 +56,11 @@ export default function SpotMap({ spots, selectedId, onSelect, onRegionChange, p
         loadingEnabled
         onMapReady={() => { setReady(true); setLoadFailed(false); }}
         onRegionChangeComplete={next => { setRegion(next); onRegionChange?.(next); }}
-        onPress={event => { if (picking) onPick?.(event.nativeEvent.coordinate); }}
+        onPanDrag={() => { if (!picking) onInteract?.(); }}
+        onPress={event => {
+          if (picking) onPick?.(event.nativeEvent.coordinate);
+          else onInteract?.();
+        }}
       >
         {clusters.map(cluster => {
           const selected = cluster.members[0].id === selectedId;

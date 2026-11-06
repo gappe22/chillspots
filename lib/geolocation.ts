@@ -11,3 +11,28 @@ export async function locate(): Promise<Coordinate> {
   const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
   return { latitude: position.coords.latitude, longitude: position.coords.longitude };
 }
+
+export async function reverseGeocode({ latitude, longitude }: Coordinate): Promise<string> {
+  const fallback = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&zoom=14&accept-language=it`);
+    if (response.ok) {
+      const data = await response.json() as { address?: Record<string, string>; name?: string };
+      const addr = data.address ?? {};
+      const place = addr.city || addr.town || addr.village || addr.municipality || addr.hamlet || addr.suburb || addr.locality || data.name;
+      const area = addr.county || addr.province || addr.state;
+      const parts = [place, area].filter((item, idx, arr) => item && arr.indexOf(item) === idx);
+      if (parts.length) return parts.join(', ').slice(0, 120);
+    }
+  } catch {}
+  if (Platform.OS !== 'web') {
+    try {
+      const results = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (results[0]) {
+        const parts = [results[0].city || results[0].name, results[0].subregion || results[0].region].filter(Boolean);
+        if (parts.length) return parts.join(', ').slice(0, 120);
+      }
+    } catch {}
+  }
+  return fallback;
+}

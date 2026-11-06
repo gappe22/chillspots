@@ -47,14 +47,18 @@ export function photo(value, index) {
 
 export function validateSpot(body) {
   if (!isObject(body)) invalid('Invia un oggetto JSON.', 'body');
-  if (!Array.isArray(body.photos) || body.photos.length < 1 || body.photos.length > 3) invalid('Scegli da 1 a 3 foto.', 'photos');
+  const rawPhotos = body.photos === undefined ? [] : body.photos;
+  if (!Array.isArray(rawPhotos) || rawPhotos.length > 3) invalid('Scegli fino a 3 foto.', 'photos');
+  const latitude = number(body.latitude, 'latitude', -90, 90);
+  const longitude = number(body.longitude, 'longitude', -180, 180);
+  const rawLocality = typeof body.locality === 'string' && body.locality.trim().length >= 2 ? body.locality : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
   return {
     name: text(body.name, 'name', 2, 80),
-    locality: text(body.locality, 'locality', 2, 120),
+    locality: text(rawLocality, 'locality', 2, 120),
     description: text(body.description, 'description', 0, 2000),
-    latitude: number(body.latitude, 'latitude', -90, 90),
-    longitude: number(body.longitude, 'longitude', -180, 180),
-    photos: body.photos.map(photo),
+    latitude,
+    longitude,
+    photos: rawPhotos.map(photo),
     ratings: validateRatings(body.ratings),
   };
 }

@@ -155,7 +155,7 @@ test('invalid submissions and missing targets never mutate records or grant XP',
   const { token } = await f.register();
   const invalidBodies = [
     { ...place, latitude: 91 }, { ...place, longitude: '10.4' }, { ...place, name: 'x' },
-    { ...place, ratings: { ...ratings, beauty: 6 } }, { ...place, photos: [] },
+    { ...place, ratings: { ...ratings, beauty: 6 } }, { ...place, photos: 'not-an-array' },
     { ...place, photos: ['https://example.test/image.jpg'] },
     { ...place, photos: ['data:image/png;base64,aGVsbG8='] },
     { ...place, photos: ['mountain', 'mountain', 'mountain', 'mountain'] },

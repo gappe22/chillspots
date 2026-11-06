@@ -7,13 +7,13 @@ import type { AuthResponse, CreateReviewInput, CreateSpotInput, Profile, Review,
 import { useChillspots } from '@/hooks/useChillspots';
 import { api, RequestError } from '@/lib/api';
 import { batchUpdates } from '@/lib/batchUpdates';
-import { discover, type Filter, type Sort } from '@/lib/discovery';
+import { discover, hasActiveFilter, type Filter, type Sort } from '@/lib/discovery';
 import { locate } from '@/lib/geolocation';
 import SpotMap from '@/components/chillspots/SpotMap';
 import { INITIAL_REGION, type Coordinate } from '@/components/chillspots/mapHelpers';
 import SpotPanel from '@/components/chillspots/SpotPanel';
 import { AuthPanel, PasswordPanel, ProfileEditor, ProfilePanel } from '@/components/chillspots/AccountPanels';
-import { CreateSpotForm, ReviewForm, type SpotDraft } from '@/components/chillspots/ContributionForms';
+import { CoordinateInputs, CreateSpotForm, ReviewForm, type SpotDraft } from '@/components/chillspots/ContributionForms';
 import { Action, Message, ModalSheet } from '@/components/chillspots/Controls';
 import { sortLabels, type Page } from '@/components/chillspots/Discovery';
 import { SettingsPage } from '@/components/chillspots/SettingsPage';
@@ -21,7 +21,7 @@ import { IconAction } from '@/components/chillspots/Neo';
 import { MapProfile, PlacesPanel, SearchPanel } from '@/components/chillspots/MapPanels';
 import Overlay from '@/components/chillspots/Overlay';
 import GlobalStyles from '@/components/chillspots/GlobalStyles';
-import NavBar, { NAV_BAR_HEIGHT, type NavTab } from '@/components/chillspots/NavBar';
+import NavBar, { NAV_BAR_HEIGHT, NAV_TABS_HEIGHT, type NavTab } from '@/components/chillspots/NavBar';
 import type { SheetController } from '@/components/chillspots/useSheetMotion';
 import MenuSheet, { MenuLayoutContext } from '@/components/chillspots/MenuSheet';
 import { PreferencesContext } from '@/components/chillspots/PreferencesContext';
@@ -47,11 +47,36 @@ export default function Home() {
   const [picking, setPicking] = useState(false); const [coordinate, setCoordinate] = useState<Coordinate | null>(null); const [spotDraft, setSpotDraft] = useState<SpotDraft>(); const [editingSpotId, setEditingSpotId] = useState<string | null>(null); const [editingReview, setEditingReview] = useState<Review>();
   const [saveBusy, setSaveBusy] = useState<string | null>(null); const saveInFlight = useRef(false); const [toast, setToast] = useState<string | null>(null); const [gallery, setGallery] = useState<number | null>(null);
   const deepLinkHandled = useRef(false); const locationBackup = useRef<Coordinate | null>(null);
-  const sheet = useRef<SheetController | null>(null); const transition = useRef(0);
-  const registerSheet = useCallback((controller: SheetController) => { sheet.current = controller; return () => { if (sheet.current === controller) sheet.current = null; }; }, []);
+  const sheet = useRef<SheetController | null>(null); const sheetStack = useRef<SheetController[]>([]); const transition = useRef(0);
+  const registerSheet = useCallback((controller: SheetController) => {
+    sheetStack.current.push(controller);
+    sheet.current = controller;
+    return () => {
+      sheetStack.current = sheetStack.current.filter(c => c !== controller);
+      sheet.current = sheetStack.current[sheetStack.current.length - 1] ?? null;
+    };
+  }, []);
+  const [closingSearch, setClosingSearch] = useState(false);
+  const closeSearch = useCallback(() => {
+    if (closingSearch) return;
+    setClosingSearch(true);
+    Keyboard.dismiss();
+    setSheetExpanded(false);
+    const finish = () => {
+      setClosingSearch(false);
+      setSearchOpen(false);
+    };
+    if (sheet.current) {
+      sheet.current.dismiss(finish);
+    } else {
+      finish();
+    }
+  }, [closingSearch]);
   const origin = userCoordinate ?? region;
+  const isMapOrSaved = (page === 'explore' || page === 'saved') && !picking && !selected && (!modal || modal === 'sort');
+  const hideSearch = !isMapOrSaved;
   const navBottom = keyboardHeight > 0 ? 0 : insets.bottom;
-  const navHeight = NAV_BAR_HEIGHT + navBottom + keyboardHeight;
+  const navHeight = (hideSearch ? NAV_TABS_HEIGHT : NAV_BAR_HEIGHT) + navBottom + keyboardHeight;
   const showBackButton = !!(selected || page !== 'explore' || searchOpen || modal || picking || view === 'list');
   const activeTab: NavTab = page === 'settings' ? 'settings' : page === 'saved' ? 'saved' : searchOpen ? 'search' : modal === 'auth' || modal === 'profile' || modal === 'profileEdit' || modal === 'password' ? 'profile' : 'map';
   const filtered = useMemo(() => {
@@ -106,8 +131,13 @@ export default function Home() {
   }
   function navigate(tab: NavTab) {
     if (busy) return;
+    if (searchOpen && tab === 'map') {
+      closeSearch();
+      return;
+    }
     if (tab === 'map' && page === 'explore' && !selected && !searchOpen && !modal && gallery === null && !picking) {
       ++transition.current;
+      setView('map');
       sheet.current?.collapse();
       return;
     }
@@ -116,8 +146,26 @@ export default function Home() {
   function selectNavTab(tab: NavTab, preserveKeyboard = false) {
     if (busy) return;
     ++transition.current;
-    if (tab === activeTab && !selected && !picking && gallery === null && (!modal || modal === 'auth' || modal === 'profile') && sheet.current) {
-      sheet.current.expand(preserveKeyboard);
+    if (searchOpen && tab === 'map') {
+      closeSearch();
+      return;
+    }
+    if (tab === 'map' && activeTab === 'map' && page === 'explore' && !selected && !picking && gallery === null && !modal) {
+      if (view === 'list' || sheet.current?.isExpanded()) {
+        setView('map');
+        sheet.current?.collapse();
+      } else {
+        setView('list');
+        sheet.current?.expand(preserveKeyboard);
+      }
+      return;
+    }
+    if (tab === activeTab && !selected && !picking && gallery === null && (!modal || modal === 'auth' || modal === 'profile' || modal === 'profileEdit' || modal === 'password') && sheet.current) {
+      if (sheet.current.isExpanded()) {
+        sheet.current.collapse();
+      } else {
+        sheet.current.expand(preserveKeyboard);
+      }
       return;
     }
     setAnimateSheetEntry(!sheet.current?.isExpanded());
@@ -125,9 +173,31 @@ export default function Home() {
   }
   function beginAdding() { setSearchOpen(false); locationBackup.current = null; setEditingSpotId(null); setEditingReview(undefined); setSpotDraft(undefined); setCoordinate(null); setSelectedId(null); setPage('explore'); setView('map'); setPicking(true); setModal(null); }
   function startAdding() { if (!app.profile) { setPending({ kind: 'add' }); openModal('auth'); } else beginAdding(); }
+  function backToPicking() {
+    if (busy) return;
+    transitionCard(() => {
+      setModal(null);
+      setModalError(null);
+      setPicking(true);
+      setView('map');
+      if (coordinate) setTarget({ ...coordinate, latitudeDelta: .03, longitudeDelta: .03 });
+    });
+  }
+  function cancelAdding() {
+    if (busy) return;
+    transitionCard(() => {
+      locationBackup.current = null;
+      setPicking(false);
+      setModal(null);
+      setModalError(null);
+      setEditingSpotId(null);
+      setSpotDraft(undefined);
+      setCoordinate(null);
+    });
+  }
   function showProfile() { setPage('explore'); setSearchOpen(false); setSelectedId(null); setPicking(false); setModalError(null); if (!app.profile) { setPending({ kind: 'profile' }); setModal('auth'); } else setModal('profile'); }
   function openProfile() { if (modal === 'auth' || modal === 'profile') { sheet.current?.expand(); return; } transitionCard(showProfile); }
-  function addReview() { setEditingReview(undefined); if (!app.profile) { setPending({ kind: 'review', id: selectedId ?? undefined }); openModal('auth'); } else openModal('review'); }
+  function addReview() { if (selected && app.profile && selected.ownerId === app.profile.id) return; setEditingReview(undefined); if (!app.profile) { setPending({ kind: 'review', id: selectedId ?? undefined }); openModal('auth'); } else openModal('review'); }
   function editSpot() {
     if (!selected || !app.profile || selected.ownerId !== app.profile.id) return;
     setEditingSpotId(selected.id); setCoordinate({ latitude: selected.latitude, longitude: selected.longitude }); setSpotDraft({ name: selected.name, locality: selected.locality, description: selected.description, photos: selected.photos, ratings: selected.ratings }); openModal('create');
@@ -136,7 +206,7 @@ export default function Home() {
     function dismissPanel() {
       if (gallery !== null) { transitionCard(() => setGallery(null)); return true; }
       if (modal) { if (!busy) transitionCard(closeModal); return true; }
-      if (searchOpen) { transitionCard(() => { Keyboard.dismiss(); setSearchOpen(false); }); return true; }
+      if (searchOpen) { closeSearch(); return true; }
       if (selectedId) { transitionCard(closeDetail); return true; }
       if (picking) { setPicking(false); if (locationBackup.current) { setCoordinate(locationBackup.current); setModal('create'); } return true; }
       if (page !== 'explore') { transitionCard(() => changePage('explore')); return true; }
@@ -159,16 +229,16 @@ export default function Home() {
       const result = await api<AuthResponse>(register ? '/auth/register' : '/auth/login', fields); await app.acceptAuth(result); setModal(null); setToast(register ? 'Benvenuto fuori. La tua prossima scoperta ti aspetta!' : 'Bentornato. Ripartiamo da un bel posto.');
       const next = pending; setPending(null);
       if (next?.kind === 'add') beginAdding();
-      else if (next?.kind === 'review') { if (next.id) setSelectedId(next.id); setModal('review'); }
+      else if (next?.kind === 'review') { const targetSpot = app.spots.find(s => s.id === (next.id ?? selectedId)); if (next.id) setSelectedId(next.id); if (!targetSpot || targetSpot.ownerId !== result.profile.id) setModal('review'); }
       else if (next?.kind === 'profile') setModal('profile');
       else if (next?.kind === 'saved') changePage('saved');
-      else if (next?.kind === 'save' && next.id) { await api(`/saved/${next.id}`, undefined, 'PUT'); await app.refreshAccount(); setToast('Spot salvato. Ritrovalo quando vuoi.'); }
+      else if (next?.kind === 'save' && next.id) { await api(`/saved/${next.id}`, undefined, 'PUT'); await app.refreshAccount(); setToast('Spot salvato'); }
     });
   }
   async function saveSpot(id: string) {
     if (!app.profile) { setPending({ kind: 'save', id }); openModal('auth'); return; }
     if (saveInFlight.current) return; saveInFlight.current = true; setSaveBusy(id);
-    try { const saved = await app.saveSpot(id); setToast(saved ? 'Salvato. Un bel posto da ritrovare.' : 'Spot rimosso dai salvati.'); }
+    try { const saved = await app.saveSpot(id); setToast(saved ? 'Spot salvato' : 'Spot rimosso dai salvati.'); }
     catch (reason) { setToast(messageFor(reason)); }
     finally { saveInFlight.current = false; setSaveBusy(null); }
   }
@@ -203,20 +273,33 @@ export default function Home() {
     if (Platform.OS === 'web') apply(window.location.href); else void Linking.getInitialURL().then(apply);
   }, [app.loading, app.spots]);
 
+  const handleMapInteract = useCallback(() => {
+    if (picking || busy || selected || (modal && modal !== 'auth' && modal !== 'profile' && modal !== 'profileEdit' && modal !== 'password')) return;
+    Keyboard.dismiss();
+    if (page === 'explore' && view === 'list') {
+      setView('map');
+    }
+    if (sheet.current?.isExpanded()) {
+      sheet.current.collapse();
+    }
+  }, [picking, busy, modal, selected, page, view]);
+
   const sheetBottom = navHeight + 36;
   return <PreferencesContext.Provider value={app.preferences}><MenuLayoutContext.Provider value={{ bottom: navHeight, registerSheet, closeDisabled: busy, onSheetExpanded: setSheetExpanded, animateEntry: animateSheetEntry }}><View style={styles.page}><GlobalStyles />
     <View style={StyleSheet.absoluteFill}>
-      <SpotMap spots={picking ? app.spots : filtered} selectedId={selectedId} onSelect={id => { if (!picking && !busy) selectSpot(id); }} onRegionChange={setRegion} target={target} reduceMotion={app.preferences.reduceMotion} userCoordinate={userCoordinate} picking={picking} pickedCoordinate={coordinate ?? undefined} onPick={setCoordinate} bottomInset={sheetExpanded ? height * .75 : picking ? navHeight + 180 : sheetBottom} />
+      <SpotMap spots={picking ? app.spots : filtered} selectedId={selectedId} onSelect={id => { if (!picking && !busy) selectSpot(id); }} onRegionChange={setRegion} target={target} reduceMotion={app.preferences.reduceMotion} userCoordinate={userCoordinate} picking={picking} pickedCoordinate={coordinate ?? undefined} onPick={setCoordinate} bottomInset={sheetExpanded ? height * .75 : picking ? navHeight + 180 : sheetBottom} onInteract={handleMapInteract} />
     </View>
-    <View pointerEvents="box-none" style={[styles.floatingTop, { top: insets.top + 16 }]}><IconAction name={showBackButton ? 'arrow-back' : 'search-outline'} label={picking ? 'Annulla scelta posizione' : showBackButton ? 'Torna alla mappa' : 'Cerca un ChillSpot'} disabled={busy} onPress={() => { if (picking) { setPicking(false); if (locationBackup.current) { setCoordinate(locationBackup.current); setModal('create'); } } else if (showBackButton) navigate('map'); else setSearchOpen(true); }} style={styles.floatingButton} /><MapProfile profile={app.profile} onPress={openProfile} ready={app.authReady && !busy} /></View>
+    <View pointerEvents="box-none" style={[styles.floatingTop, { top: insets.top + 16 }]}><IconAction name={showBackButton ? 'arrow-back' : 'search-outline'} label={modal === 'create' ? 'Torna alla scelta posizione' : picking ? 'Annulla scelta posizione' : showBackButton ? 'Torna alla mappa' : 'Cerca un ChillSpot'} disabled={busy} onPress={() => { if (modal === 'create') backToPicking(); else if (picking) cancelAdding(); else if (searchOpen) closeSearch(); else if (showBackButton) navigate('map'); else setSearchOpen(true); }} style={styles.floatingButton} /><MapProfile profile={app.profile} onPress={openProfile} ready={app.authReady && !busy} /></View>
     {page === 'settings' && !modal && !selected && <MenuSheet title="Impostazioni" onClose={() => { changePage('explore'); setView('map'); }}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20 }}><SettingsPage profile={app.profile} preferences={app.preferences} onPreferences={app.changePreferences} onEditProfile={() => openModal('profileEdit')} onPassword={() => openModal('password')} onLogin={() => { setPending(null); openModal('auth'); }} onLogout={() => openModal('logout')} onProfile={openProfile} onLocate={findMe} /></ScrollView></MenuSheet>}
-    {page !== 'settings' && !selected && !modal && !searchOpen && !picking && <>
-      {view === 'map' && page === 'explore' && <><View pointerEvents="box-none" style={[styles.mapActions, { bottom: sheetBottom + 82 }]}><IconAction name="locate-outline" label="Vicino a me" onPress={findMe} disabled={locating} style={styles.floatingButton} /><IconAction name="scan-outline" label="Torna all’area iniziale" onPress={() => setTarget({ ...INITIAL_REGION })} style={styles.floatingButton} /></View><View pointerEvents="box-none" style={[styles.addPosition, { bottom: sheetBottom + 14 }]}><Pressable accessibilityRole="button" accessibilityLabel="Aggiungi un ChillSpot" disabled={!app.authReady} onPress={startAdding} style={styles.addButton}><View style={styles.addSymbol}><Ionicons name="add" size={25} color={theme.ink} /></View><Text style={styles.addText}>Aggiungi un{'\n'}ChillSpot</Text></Pressable></View></>}
-      <PlacesPanel spots={filtered} page={page} expanded={page === 'saved' || view === 'list'} onExpand={() => { if (page === 'saved') navigate('map'); else setView(view === 'list' ? 'map' : 'list'); }} onSelect={selectSpot} onSearch={() => setSearchOpen(true)} onSort={() => openModal('sort')} sort={sort} origin={origin} unit={app.preferences.distanceUnit} loading={app.loading} error={app.error} onRetry={app.refreshSpots} signedIn={!!app.profile} onLogin={() => { setPending({ kind: 'saved' }); openModal('auth'); }} />
+    {page !== 'settings' && !selected && !modal && !picking && (!searchOpen || closingSearch) && <>
+      {view === 'map' && page === 'explore' && <View pointerEvents={searchOpen ? 'none' : 'box-none'} style={StyleSheet.absoluteFill}><View pointerEvents="box-none" style={[styles.mapActions, { bottom: sheetBottom + 82 }]}><IconAction name="locate-outline" label="Vicino a me" onPress={findMe} disabled={locating} style={styles.floatingButton} /><IconAction name="scan-outline" label="Torna all’area iniziale" onPress={() => setTarget({ ...INITIAL_REGION })} style={styles.floatingButton} /></View><View pointerEvents="box-none" style={[styles.addPosition, { bottom: sheetBottom + 14 }]}><Pressable accessibilityRole="button" accessibilityLabel="Aggiungi un ChillSpot" disabled={!app.authReady} onPress={startAdding} style={styles.addButton}><View style={styles.addSymbol}><Ionicons name="add" size={25} color={theme.ink} /></View><Text style={styles.addText}>Aggiungi un{'\n'}ChillSpot</Text></Pressable></View></View>}
+      <View pointerEvents={searchOpen ? 'none' : 'box-none'} style={StyleSheet.absoluteFill}>
+        <PlacesPanel spots={filtered} page={page} expanded={page === 'saved' || view === 'list'} onExpand={() => { if (page === 'saved') navigate('map'); else setView(view === 'list' ? 'map' : 'list'); }} onSelect={selectSpot} onSearch={() => setSearchOpen(true)} onSort={() => openModal('sort')} sort={sort} origin={origin} unit={app.preferences.distanceUnit} loading={app.loading} error={app.error} onRetry={app.refreshSpots} signedIn={!!app.profile} onLogin={() => { setPending({ kind: 'saved' }); openModal('auth'); }} />
+      </View>
     </>}
-    {!selected && !picking && !searchOpen && !modal && page === 'explore' && (query || filter !== 'all' || onlyArea) && <Pressable accessibilityRole="button" accessibilityLabel="Modifica ricerca e filtri" onPress={() => setSearchOpen(true)} style={[styles.activeSearch, { top: insets.top + 76 }]}><Ionicons name="search-outline" size={13} color={theme.ink} /><Text style={styles.activeSearchText}>{query || (onlyArea ? 'In quest’area' : 'Filtri attivi')} · {filtered.length}</Text></Pressable>}
-    {searchOpen && !picking && !modal && !selected && <SearchPanel spots={filtered} origin={origin} unit={app.preferences.distanceUnit} filter={filter} onFilter={setFilter} sort={sort} onSort={() => openModal('sort')} onlyArea={onlyArea} onArea={() => setOnlyArea(value => !value)} onClose={() => { Keyboard.dismiss(); setSearchOpen(false); }} onSelect={selectSpot} onClear={() => { setQuery(''); setFilter('all'); setOnlyArea(false); }} />}
-    {picking && !modal && <View style={[styles.pickPanel, { bottom: navHeight }]}><Text style={styles.pickTitle}>Dove si trova il tuo ChillSpot?</Text><Text style={styles.pickHint}>{coordinate ? 'Posizione selezionata. Tocca un altro punto per cambiarla.' : 'Tocca la mappa per scegliere il punto esatto.'}</Text><View style={{ flexDirection: 'row', gap: 10 }}><View style={{ flex: 1 }}><Action compact secondary title="Annulla" onPress={() => { setPicking(false); if (locationBackup.current) { setCoordinate(locationBackup.current); setModal('create'); } }} /></View><View style={{ flex: 1.6 }}><Action compact title="Conferma posizione" disabled={!coordinate} onPress={() => openModal('create')} /></View></View></View>}
+    {!selected && !picking && !searchOpen && !modal && page === 'explore' && (query || hasActiveFilter(filter) || onlyArea) && <Pressable accessibilityRole="button" accessibilityLabel="Modifica ricerca e filtri" onPress={() => setSearchOpen(true)} style={[styles.activeSearch, { top: insets.top + 76 }]}><Ionicons name="search-outline" size={13} color={theme.ink} /><Text style={styles.activeSearchText}>{query || (onlyArea ? 'In quest’area' : 'Filtri attivi')} · {filtered.length}</Text></Pressable>}
+    {searchOpen && !picking && !modal && !selected && <SearchPanel spots={filtered} origin={origin} unit={app.preferences.distanceUnit} filter={filter} onFilter={setFilter} sort={sort} onSort={() => openModal('sort')} onlyArea={onlyArea} onArea={() => setOnlyArea(value => !value)} onClose={() => setSearchOpen(false)} onSelect={selectSpot} onClear={() => { setQuery(''); setFilter('all'); setOnlyArea(false); }} />}
+    {picking && !modal && <View style={[styles.pickPanel, { bottom: Math.max(0, navHeight - 2) }]}><Text style={styles.pickTitle}>Dove si trova il tuo ChillSpot?</Text><Text style={styles.pickHint}>Tocca la mappa oppure inserisci a mano le coordinate:</Text><CoordinateInputs coordinate={coordinate} onChange={coord => { setCoordinate(coord); setTarget({ ...coord, latitudeDelta: .03, longitudeDelta: .03 }); }} /><View style={{ flexDirection: 'row', gap: 10 }}><View style={{ flex: 1 }}><Action compact secondary title="Annulla" onPress={cancelAdding} /></View><View style={{ flex: 1.6 }}><Action compact title="Conferma posizione" disabled={!coordinate} onPress={() => openModal('create')} /></View></View></View>}
     {!!toast && <View style={[styles.toast, { bottom: navHeight + 12 }]}><Ionicons name="information-circle-outline" size={21} color={theme.lime} /><Text accessibilityLiveRegion="polite" style={styles.toastText}>{toast}</Text><Pressable accessibilityRole="button" accessibilityLabel="Chiudi messaggio" onPress={() => setToast(null)} style={{ padding: 5 }}><Ionicons name="close" size={18} color={theme.paper} /></Pressable></View>}
     {selected && !picking && !modal && gallery === null && <Overlay key={selected.id} onClose={closeDetail} wide={wide}><SpotPanel key={selected.id} spot={selected} reviews={reviews} profile={app.profile} saved={!!app.account?.savedSpotIds.includes(selected.id)} saving={saveBusy !== null} loadingReviews={reviewsLoading} error={reviewsError} onClose={closeDetail} onSave={() => saveSpot(selected.id)} onDirections={directions} onShare={share} onEditSpot={editSpot} onAddReview={addReview} onEditReview={review => { setEditingReview(review); openModal('review'); }} onDeleteReview={review => { setEditingReview(review); openModal('deleteReview'); }} onOpenGallery={setGallery} onRetry={() => loadReviews(selected.id)} /></Overlay>}
     {modal === 'auth' && <AuthPanel key={page} onClose={closeModal} onSubmit={signIn} busy={busy} error={modalError} onResetError={() => setModalError(null)} />}
@@ -224,12 +307,12 @@ export default function Home() {
     {modal === 'profileEdit' && app.profile && <ProfileEditor profile={app.profile} onClose={closeModal} busy={busy} error={modalError} onSubmit={input => modalWork(async () => { const result = await api<{ profile: Profile }>('/profile', input, 'PATCH'); app.updateProfile(result.profile); setModal(null); setToast('Profilo aggiornato. Sempre più tuo.'); await app.refreshAccount(); if (selectedId) void loadReviews(selectedId); })} />}
     {modal === 'password' && <PasswordPanel onClose={closeModal} busy={busy} error={modalError} onSubmit={input => modalWork(async () => { const result = await api<AuthResponse>('/auth/password', input); await app.acceptAuth(result); setModal(null); setToast('Password aggiornata. Le altre sessioni sono state disconnesse.'); })} />}
     {modal === 'review' && <ReviewForm onClose={closeModal} initial={editingReview} onSubmit={input => submitContribution(input, false)} busy={busy} error={modalError} />}
-    {modal === 'create' && coordinate && <CreateSpotForm coordinate={coordinate} draft={spotDraft} onDraftChange={setSpotDraft} editing={!!editingSpotId} onClose={closeModal} onChangeLocation={() => { locationBackup.current = coordinate; setModal(null); setPicking(true); setView('map'); setTarget({ ...coordinate, latitudeDelta: .03, longitudeDelta: .03 }); }} onSubmit={input => submitContribution(input, true)} busy={busy} error={modalError} />}
+    {modal === 'create' && coordinate && <CreateSpotForm coordinate={coordinate} onCoordinateChange={coord => { setCoordinate(coord); setTarget({ ...coord, latitudeDelta: .03, longitudeDelta: .03 }); }} draft={spotDraft} onDraftChange={setSpotDraft} editing={!!editingSpotId} onClose={backToPicking} onCancel={cancelAdding} onChangeLocation={backToPicking} onSubmit={input => submitContribution(input, true)} busy={busy} error={modalError} />}
     {modal === 'sort' && <ModalSheet title="Segui il tuo istinto." onClose={closeModal}><Text style={styles.modalCopy}>Ordina gli spot per trovare la tua prossima pausa.</Text>{(['recommended', 'distance', 'recent'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: sort === value }} aria-checked={sort === value} onPress={() => { setSort(value); setModal(null); }} style={[styles.sortOption, sort === value && { backgroundColor: theme.lime }]}><Text style={styles.sortOptionText}>{sortLabels[value]}</Text><Ionicons name={sort === value ? 'radio-button-on' : 'radio-button-off'} size={21} color={theme.ink} /></Pressable>)}<Text style={styles.modalCopy}>{userCoordinate ? 'Le distanze partono dalla tua posizione.' : 'Le distanze partono dal centro della mappa. Tocca “Vicino a me” per usare la tua posizione.'}</Text></ModalSheet>}
     {modal === 'deleteReview' && <ModalSheet title="Eliminare la recensione?" onClose={closeModal}><Text style={styles.modalCopy}>Il tuo commento verrà rimosso e i 10 XP assegnati saranno sottratti dal tuo totale. Potrai scrivere una nuova recensione in seguito.</Text><Message text={modalError} /><Action danger title="Elimina recensione" busy={busy} onPress={removeReview} /><Action secondary title="Tieni la recensione" disabled={busy} onPress={closeModal} /></ModalSheet>}
     {modal === 'logout' && <ModalSheet title="Ci vediamo fuori." onClose={closeModal}><Text style={styles.modalCopy}>Vuoi uscire dal tuo account? I tuoi spot e salvataggi ti aspettano al prossimo accesso.</Text><Message text={modalError} /><Action title="Esci dall’account" busy={busy} onPress={() => modalWork(async () => { await app.logout(); setModal(null); setSelectedId(null); changePage('explore'); setToast('Hai effettuato l’uscita. A presto!'); })} /><Action secondary title="Resta qui" disabled={busy} onPress={closeModal} /></ModalSheet>}
     {gallery !== null && selected && <MenuSheet title={selected.name} onClose={() => setGallery(null)}><View style={styles.gallery}><Text style={styles.galleryCounter}>FOTO {gallery + 1} / {selected.photos.length}</Text><Image source={imageFor(selected.photos[gallery])} style={styles.galleryImage} resizeMode="contain" /><View style={styles.galleryNav}><IconAction name="arrow-back" label="Foto precedente" disabled={gallery === 0} onPress={() => setGallery(gallery - 1)} /><Text style={styles.galleryCounter}>{gallery + 1} DI {selected.photos.length}</Text><IconAction name="arrow-forward" label="Foto successiva" disabled={gallery === selected.photos.length - 1} onPress={() => setGallery(gallery + 1)} /></View></View></MenuSheet>}
-    <NavBar active={activeTab} onSelect={selectNavTab} onSearch={() => selectNavTab('search', true)} onQuery={setQuery} searchQuery={query} searchExpanded={searchOpen && sheetExpanded && !modal && !selected} bottom={navBottom} keyboardOffset={keyboardHeight} disabled={busy} />
+    <NavBar active={activeTab} onSelect={selectNavTab} onSearch={() => selectNavTab('search', true)} onQuery={setQuery} searchQuery={query} searchExpanded={searchOpen && sheetExpanded && !modal && !selected} bottom={navBottom} keyboardOffset={keyboardHeight} disabled={busy} hideSearch={hideSearch} />
   </View></MenuLayoutContext.Provider></PreferencesContext.Provider>;
 }
 const styles = StyleSheet.create({
@@ -237,7 +320,7 @@ const styles = StyleSheet.create({
   floatingTop: { position: 'absolute', left: 16, right: 12, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }, floatingButton: { width: 44, height: 44, ...hardShadow },
   mapActions: { position: 'absolute', right: 17, gap: 10 }, addPosition: { position: 'absolute', left: 0, right: 0, alignItems: 'center' }, addButton: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50, padding: 5, paddingRight: 15, backgroundColor: theme.paper, borderWidth: 2, borderColor: theme.ink, ...hardShadow }, addSymbol: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.lime, borderWidth: 1, borderColor: theme.ink }, addText: { fontFamily: 'Inter-Bold', fontSize: 12, lineHeight: 15, color: theme.ink },
   activeSearch: { position: 'absolute', left: 16, maxWidth: 230, flexDirection: 'row', gap: 6, alignItems: 'center', backgroundColor: theme.lime, borderWidth: 1.5, borderColor: theme.ink, padding: 8 }, activeSearchText: { fontFamily: 'Inter-Medium', fontSize: 11, color: theme.ink, flexShrink: 1 },
-  pickPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, borderWidth: 2, borderColor: theme.ink, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: theme.paper, padding: 18 }, pickTitle: { fontFamily: 'Inter-Bold', fontSize: 20, lineHeight: 24, letterSpacing: -.5, color: theme.ink }, pickHint: { fontFamily: 'Inter-Regular', color: theme.muted, fontSize: 12, lineHeight: 18, marginTop: 7 },
+  pickPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopWidth: 2, borderColor: theme.ink, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: theme.paper, padding: 18, paddingBottom: 14 }, pickTitle: { fontFamily: 'Inter-Bold', fontSize: 20, lineHeight: 24, letterSpacing: -.5, color: theme.ink }, pickHint: { fontFamily: 'Inter-Regular', color: theme.muted, fontSize: 12, lineHeight: 18, marginTop: 7 },
   toast: { position: 'absolute', alignSelf: 'center', maxWidth: 520, width: '90%', backgroundColor: theme.ink, borderWidth: 1, borderColor: theme.lime, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 1100, ...hardShadow }, toastText: { flex: 1, color: theme.paper, fontFamily: 'Inter-Medium', fontSize: 12, lineHeight: 19 }, modalCopy: { fontFamily: 'Inter-Regular', color: theme.muted, fontSize: 14, lineHeight: 23, marginVertical: 17 }, sortOption: { padding: 17, borderWidth: 1.5, borderColor: theme.ink, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, sortOptionText: { fontFamily: 'Inter-Bold', fontSize: 14, color: theme.ink },
   gallery: { flex: 1, backgroundColor: theme.paper }, galleryCounter: { fontFamily: mono, fontSize: 10, color: theme.muted, marginTop: 7 }, galleryImage: { flex: 1, width: '100%', marginVertical: 18 }, galleryNav: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 30, padding: 16 },
 });

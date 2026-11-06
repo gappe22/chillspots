@@ -15,6 +15,7 @@ export interface SpotMapProps {
   reduceMotion?: boolean;
   userCoordinate?: Coordinate;
   zoomRequest?: { direction: 'in' | 'out'; id: number };
+  onInteract?: () => void;
 }
 
 export const INITIAL_REGION: Region = {

@@ -113,6 +113,8 @@ export default function SpotMap(props: SpotMapProps) {
     let disposed = false;
     let map: LeafletMap | undefined;
     let observer: ResizeObserver | undefined;
+    let mapNode: HTMLDivElement | null = null;
+    let pointerDownListener: ((event: PointerEvent) => void) | null = null;
     setContext(null);
     setError(null);
     loadLeaflet().then(library => {
@@ -136,9 +138,23 @@ export default function SpotMap(props: SpotMapProps) {
         setRevision(value => value + 1);
         callbacks.current.onRegionChange?.(readRegion(activeMap));
       });
-      activeMap.on('click', event => {
-        if (callbacks.current.picking && event.latlng) callbacks.current.onPick?.({ latitude: event.latlng.lat, longitude: event.latlng.lng });
+      activeMap.on('dragstart', () => {
+        if (!disposed && !callbacks.current.picking) callbacks.current.onInteract?.();
       });
+      activeMap.on('click', event => {
+        if (callbacks.current.picking && event.latlng) {
+          callbacks.current.onPick?.({ latitude: event.latlng.lat, longitude: event.latlng.lng });
+        } else if (!callbacks.current.picking) {
+          callbacks.current.onInteract?.();
+        }
+      });
+      pointerDownListener = (event: PointerEvent) => {
+        if (disposed || callbacks.current.picking) return;
+        if ((event.target as HTMLElement)?.closest?.('.chillspots-map-photo')) return;
+        callbacks.current.onInteract?.();
+      };
+      mapNode = container.current;
+      mapNode.addEventListener('pointerdown', pointerDownListener, { capture: true, passive: true });
       observer = new ResizeObserver(() => {
         activeMap.invalidateSize({ pan: false });
         setRevision(value => value + 1);
@@ -149,7 +165,12 @@ export default function SpotMap(props: SpotMapProps) {
     }).catch(reason => {
       if (!disposed) setError(reason instanceof Error ? reason.message : 'Impossibile caricare la mappa. Riprova.');
     });
-    return () => { disposed = true; observer?.disconnect(); map?.remove(); };
+    return () => {
+      disposed = true;
+      observer?.disconnect();
+      if (mapNode && pointerDownListener) mapNode.removeEventListener('pointerdown', pointerDownListener, true);
+      map?.remove();
+    };
   }, [attempt]);
 
   useEffect(() => {
